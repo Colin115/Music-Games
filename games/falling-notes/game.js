@@ -12,12 +12,7 @@ canvas.height = 420;
 /* -------------------------------
    Notes
 -------------------------------- */
-const NOTES = [
-  { name: "quarter", symbol: "𝅘𝅥" },
-  { name: "half", symbol: "𝅗𝅥" },
-  { name: "whole", symbol: "𝅝" },
-  { name: "rest", symbol: "𝄽" }, // obstacle
-];
+const NOTES = getAllNotes();
 
 const NOTE_SIZE = 44; // ⬅ bigger notes
 const PLATFORM_WIDTH = 70;
@@ -49,7 +44,7 @@ startBtn.onclick = () => {
 
   targetNote = NOTES[Math.floor(Math.random() * 3)];
   targetSpan.textContent = targetNote.name;
-    console.log(targetNote)
+  console.log(targetNote);
   scoreSpan.textContent = score;
   updateLivesDisplay();
 
@@ -69,7 +64,7 @@ function spawnNote() {
     note = targetNote;
   } else {
     // pick a wrong note or rest
-    const obstacles = NOTES.filter(n => n.name !== targetNote.name);
+    const obstacles = NOTES.filter((n) => n.name !== targetNote.name);
     note = obstacles[Math.floor(Math.random() * obstacles.length)];
   }
 
@@ -79,7 +74,6 @@ function spawnNote() {
     y: -NOTE_SIZE,
   });
 }
-
 
 /* -------------------------------
    Main Loop
@@ -109,34 +103,33 @@ function update() {
     note.y += speed;
   }
 
-falling = falling.filter(note => {
-  // Hit platform
-  if (
-    note.y + NOTE_SIZE / 2 >= canvas.height - 30 &&
-    Math.abs(note.x - basketX) < PLATFORM_WIDTH / 2
-  ) {
-    if (note.name === targetNote.name) {
-      score++;
-      speed += 0.15;
-    } else {
-      loseLife();
+  falling = falling.filter((note) => {
+    // Hit platform
+    if (
+      note.y + NOTE_SIZE / 2 >= canvas.height - 30 &&
+      Math.abs(note.x - basketX) < PLATFORM_WIDTH / 2
+    ) {
+      if (note.name === targetNote.name) {
+        score++;
+        speed += 0.15;
+      } else {
+        loseLife();
+      }
+
+      scoreSpan.textContent = score;
+      return false;
     }
 
-    scoreSpan.textContent = score;
-    return false;
-  }
-
-  // Missed correct note
-  if (note.y > canvas.height + NOTE_SIZE) {
-    if (note.name === targetNote.name) {
-      loseLife();
+    // Missed correct note
+    if (note.y > canvas.height + NOTE_SIZE) {
+      if (note.name === targetNote.name) {
+        loseLife();
+      }
+      return false;
     }
-    return false;
-  }
 
-  return true;
-});
-
+    return true;
+  });
 }
 
 /* -------------------------------
@@ -152,7 +145,6 @@ function loseLife() {
     statusText.textContent = `Game Over! Final score: ${score}`;
   }
 }
-
 
 /* -------------------------------
    Draw
@@ -175,10 +167,36 @@ function draw() {
   ctx.textBaseline = "middle";
 
   for (const note of falling) {
-    ctx.fillText(note.symbol, note.x, note.y);
+    drawNote(note);
   }
 }
 
+function drawNote(note) {
+  const img = getNoteImage(note);
+  const size = NOTE_SIZE;
+  // Preserve aspect ratio
+  const aspect = img.width / img.height;
+
+  let drawWidth, drawHeight;
+
+  if (aspect >= 1) {
+    // wide image (whole note)
+    drawWidth = size;
+    drawHeight = size / aspect;
+  } else {
+    // tall image (quarter / half)
+    drawHeight = size;
+    drawWidth = size * aspect;
+  }
+
+  ctx.drawImage(
+    img,
+    note.x - drawWidth / 2,
+    note.y - drawHeight / 2,
+    drawWidth,
+    drawHeight
+  );
+}
 
 /* -------------------------------
    Canvas Shake
@@ -188,7 +206,6 @@ function shakeCanvas() {
   canvas.classList.add("shake");
   setTimeout(() => canvas.classList.remove("shake"), 300);
 }
-
 
 /* -------------------------------
    Lives Display

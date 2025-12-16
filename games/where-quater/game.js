@@ -25,21 +25,13 @@ let timerRunning = false;
 /* -------------------------------
    Note definitions
 -------------------------------- */
-const NOTES = [
-  { name: "whole", symbol: "𝅝" },
-  { name: "half", symbol: "𝅗𝅥" },
-  { name: "quarter", symbol: "𝅘𝅥" },
-  { name: "eighth", symbol: "𝅘𝅥𝅮" },
-];
+const NOTES = getAllNotes();
 
 let targetNote;
 let placedNotes = [];
 let round = 0;
 const BASE_NOTE_SIZE = 50;
 const MIN_NOTE_SIZE = 22;
-
-
-
 
 /* -------------------------------
    Game setup
@@ -86,9 +78,39 @@ function draw() {
   ctx.textBaseline = "middle";
 
   for (const note of placedNotes) {
-    ctx.fillText(note.symbol, note.x, note.y);
+   drawNote(note);
   }
 }
+
+function drawNote(note) {
+  const img = getNoteImage(note);
+  const size = getNoteSize();
+
+  // Preserve aspect ratio
+  const aspect = img.width / img.height;
+
+  let drawWidth, drawHeight;
+
+  if (aspect >= 1) {
+    // wide image (whole note)
+    drawWidth = size;
+    drawHeight = size / aspect;
+  } else {
+    // tall image (quarter / half)
+    drawHeight = size;
+    drawWidth = size * aspect;
+  }
+
+  ctx.drawImage(
+    img,
+    note.x - drawWidth / 2,
+    note.y - drawHeight / 2,
+    drawWidth,
+    drawHeight
+  );
+}
+
+
 
 function getNoteSize() {
   const size = BASE_NOTE_SIZE - noteCount * 1.2;
