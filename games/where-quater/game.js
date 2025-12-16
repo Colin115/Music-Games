@@ -1,21 +1,30 @@
-/* ===============================
-   Canvas + DOM
-================================ */
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
-
 const statusText = document.getElementById("status");
 const noteNameSpan = document.getElementById("note-name");
+document.getElementById("start-btn").addEventListener("click", startGame);
+
+// canvas.width = Math.min(window.innerWidth * 0.9, 600);
+// canvas.height = 400;
+
 const timerSpan = document.getElementById("timer");
 const scoreSpan = document.getElementById("score");
-const startBtn = document.getElementById("start-btn");
 
-canvas.width = Math.min(window.innerWidth * 0.9, 600);
-canvas.height = 400;
+let score = 0;
+let noteCount = 3;
 
-/* ===============================
-   Notes
-================================ */
+/* -------------------------------
+   Timer state
+-------------------------------- */
+let timeLimit = 30; // seconds
+let timeLeft = timeLimit;
+let startTime = null;
+let timerRunning = false;
+
+
+/* -------------------------------
+   Note definitions
+-------------------------------- */
 const NOTES = [
   { name: "whole", symbol: "𝅝" },
   { name: "half", symbol: "𝅗𝅥" },
@@ -23,94 +32,55 @@ const NOTES = [
   { name: "eighth", symbol: "𝅘𝅥𝅮" },
 ];
 
-/* ===============================
-   Difficulty scaling
-================================ */
+let targetNote;
+let placedNotes = [];
+let round = 0;
 const BASE_NOTE_SIZE = 50;
 const MIN_NOTE_SIZE = 22;
-const NOTE_GROWTH = 5;
-const TIME_BONUS = 3;
 
-/* ===============================
-   Game state
-================================ */
-let placedNotes = [];
-let targetNote = null;
 
-let score = 0;
-let noteCount = 3;
 
-/* ===============================
-   Timer state
-================================ */
-let timeLimit = 30;
-let timeLeft = 30;
-let startTime = null;
-let timerRunning = false;
 
-/* ===============================
-   Helpers
-================================ */
-function getNoteSize() {
-  return Math.max(
-    MIN_NOTE_SIZE,
-    BASE_NOTE_SIZE - Math.log2(noteCount + 1) * 8
-  );
-}
-
-function distance(a, b) {
-  return Math.hypot(a.x - b.x, a.y - b.y);
-}
-
-/* ===============================
-   Non-overlapping placement
-================================ */
-function placeNote(existing, size) {
-  for (let attempts = 0; attempts < 100; attempts++) {
-    const note = {
-      x: Math.random() * (canvas.width - size) + size / 2,
-      y: Math.random() * (canvas.height - size) + size / 2,
-    };
-
-    if (existing.every(n => distance(n, note) > size)) {
-      return note;
-    }
-  }
-  return null;
-}
-
-/* ===============================
-   Round setup
-================================ */
+/* -------------------------------
+   Game setup
+-------------------------------- */
 function startRound() {
   placedNotes = [];
-  const noteSize = getNoteSize();
 
   targetNote = NOTES[Math.floor(Math.random() * NOTES.length)];
   noteNameSpan.textContent = targetNote.name;
-  statusText.textContent = "Find the note!";
+  statusText.textContent = "Find the note before the time is up!";
 
-  const distractors = NOTES.filter(n => n !== targetNote);
+  const randNotes = NOTES.filter(note => note !== targetNote);
+  const noteSize = getNoteSize();
 
   for (let i = 0; i < noteCount - 1; i++) {
-    const base = distractors[Math.floor(Math.random() * distractors.length)];
-    const pos = placeNote(placedNotes, noteSize);
-    if (pos) placedNotes.push({ ...base, ...pos });
+    const note = randNotes[Math.floor(Math.random() * randNotes.length)];
+    placedNotes.push({
+      ...note,
+      x: Math.random() * (canvas.width - noteSize) + noteSize / 2,
+      y: Math.random() * (canvas.height - noteSize) + noteSize / 2,
+    });
   }
 
-  const targetPos = placeNote(placedNotes, noteSize);
-  if (targetPos) placedNotes.push({ ...targetNote, ...targetPos });
+  placedNotes.push({
+    ...targetNote,
+    x: Math.random() * (canvas.width - noteSize) + noteSize / 2,
+    y: Math.random() * (canvas.height - noteSize) + noteSize / 2,
+  });
 
   draw();
 }
 
-/* ===============================
+
+/* -------------------------------
    Drawing
-================================ */
+-------------------------------- */
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   const noteSize = getNoteSize();
+
   ctx.font = `${noteSize}px serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -120,64 +90,70 @@ function draw() {
   }
 }
 
-/* ===============================
-   Click / Touch handling
-================================ */
-function handlePointer(e) {
-  if (!timerRunning) return;
+function getNoteSize() {
+  const size = BASE_NOTE_SIZE - noteCount * 1.2;
+  return Math.max(MIN_NOTE_SIZE, size);
+}
 
+
+/* -------------------------------
+   Click handling
+-------------------------------- */
+canvas.addEventListener("click", (e) => {
   const rect = canvas.getBoundingClientRect();
+  const noteSize = getNoteSize();
+
   const scaleX = canvas.width / rect.width;
   const scaleY = canvas.height / rect.height;
 
   const mx = (e.clientX - rect.left) * scaleX;
   const my = (e.clientY - rect.top) * scaleY;
-
-  const noteSize = getNoteSize();
-
+  console.log(mx, my);
   for (const note of placedNotes) {
-    if (
-      Math.abs(mx - note.x) < noteSize / 2 &&
-      Math.abs(my - note.y) < noteSize / 2
-    ) {
+    const dx = mx - note.x;
+    const dy = my - note.y;
+    console.log(note);
+    if (Math.abs(dx) < noteSize / 2 && Math.abs(dy) < noteSize / 2 && targetNote.name === note.name) {
       handleGuess(note);
       return;
     }
   }
-}
-
-canvas.addEventListener("click", handlePointer);
-canvas.addEventListener("touchstart", e => {
-  e.preventDefault();
-  handlePointer(e.touches[0]);
+  handleGuess(false)
 });
 
-/* ===============================
-   Guess logic
-================================ */
-function handleGuess(note) {
-  if (note.name === targetNote.name) {
+function handleGuess(correct) {
+  if (!timerRunning) return;
+
+  if (correct) {
     score++;
-    noteCount += NOTE_GROWTH;
-    timeLimit += TIME_BONUS;
+    noteCount += 5;
+    timeLimit += 3;
 
     scoreSpan.textContent = score;
     statusText.textContent = "Correct! 🎉";
 
-    setTimeout(startRound, 300);
+    setTimeout(startRound, 400);
   } else {
     statusText.textContent = "Try again!";
   }
 }
 
-/* ===============================
-   Timer loop
-================================ */
+function endGame() {
+  timerRunning = false;
+  statusText.textContent = `Time's up! Final score: ${score}`;
+}
+
+
+
+/* -------------------------------
+Game Timer
+-------------------------------- */
 function timerLoop(now) {
   if (!timerRunning) return;
 
   const elapsed = (now - startTime) / 1000;
   timeLeft = Math.max(0, timeLimit - elapsed);
+
   timerSpan.textContent = `Time: ${timeLeft.toFixed(1)}s`;
 
   if (timeLeft <= 0) {
@@ -188,18 +164,18 @@ function timerLoop(now) {
   requestAnimationFrame(timerLoop);
 }
 
-/* ===============================
-   Game start / end
-================================ */
+
+/* -------------------------------
+   Start game
+-------------------------------- */
 function startGame() {
   score = 0;
   noteCount = 3;
   timeLimit = 30;
-  timeLeft = 30;
+  timeLeft = timeLimit;
 
   scoreSpan.textContent = score;
   timerSpan.textContent = `Time: ${timeLeft.toFixed(1)}s`;
-  statusText.textContent = "Go!";
 
   startTime = performance.now();
   timerRunning = true;
@@ -207,10 +183,3 @@ function startGame() {
   startRound();
   requestAnimationFrame(timerLoop);
 }
-
-function endGame() {
-  timerRunning = false;
-  statusText.textContent = `Time's up! Final score: ${score}`;
-}
-
-/* ===============================
