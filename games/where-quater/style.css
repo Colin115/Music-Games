@@ -1,0 +1,27 @@
+body {
+    font-family: "Comic Sans MS", "Trebuchet MS", sans-serif;
+    background: linear-gradient(#fef6e4, #fff);
+    text-align: center;
+    margin: 0;
+    padding: 1rem;
+}
+
+canvas {
+    display: block;
+    margin: 1rem auto;
+    background: #fff;
+    border-radius: 16px;
+    border: 3px solid #333;
+    min-width: 360px;
+    min-height: 180px;
+    width: 50vw;
+    height: calc( 50vw / 2);
+}
+
+#status {
+    font-size: 1.2rem;
+}
+
+.hint {
+    opacity: 0.8;
+}
